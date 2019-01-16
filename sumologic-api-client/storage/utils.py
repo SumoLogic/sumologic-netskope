@@ -2,6 +2,7 @@ import sys
 import logging
 import logging.handlers as handlers
 
+#Todo make these in parameter
 LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(name)s | %(message)s"
 LOG_FILEPATH = "/tmp/sumoapiclient.log"
 ENABLE_FILEHANDLER = True

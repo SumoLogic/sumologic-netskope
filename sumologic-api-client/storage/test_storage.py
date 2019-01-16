@@ -24,6 +24,7 @@ class TestingStorage(unittest.TestCase):
         self.run_checks(key, value)
 
     def test_object_values(self):
+        #Todo the converted numerical values are returned as Decimal in case of AWS
         key = "abckey"
         value = {"name": "John", "age": 31, "city": ["New York", "Detroit", {"a": 40}], "hobbies": {"cricket": True, "football": False}}
         self.run_checks(key, value)

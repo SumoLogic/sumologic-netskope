@@ -39,7 +39,7 @@ class AWSKVStorage(KeyValueStorage):
                                   ReturnConsumedCapacity='TOTAL')
         if response.get('ResponseMetadata')['HTTPStatusCode'] != 200:
             raise Exception(f'''Error in get_item api: {response}''')
-        value = response["Item"][self.VALUE_COL]
+        value = response["Item"][self.VALUE_COL] if response.get("Item") else None
         self.logger.info(f'''Fetched Item from {self.table_name} table''')
         return value
 
@@ -53,11 +53,8 @@ class AWSKVStorage(KeyValueStorage):
         self.logger.info(f'''Saved Item from {self.table_name} table response: {response}''')
 
     def has_key(self, key):
-        try:
-            self.get(key)
-        except boto3.dynamodb.exceptions.DynamoDBKeyNotFoundError:
-            return False
-        return True
+        is_present = True if self.get(key) else False
+        return is_present
 
     def delete(self, key):
         table = self.dynamodbcli.Table(self.table_name)
@@ -70,8 +67,8 @@ class AWSKVStorage(KeyValueStorage):
         table = self.dynamodbcli.Table(self.table_name)
         try:
             response = table.delete()
-            self.logger.info(f'''Deleted Table {self.table_name} response: {response}''')
             table.wait_until_not_exists()
+            self.logger.info(f'''Deleted Table {self.table_name} response: {response}''')
         except ClientError as e:
             if e.response['Error']['Code'] != 'ResourceNotFoundException':
                 raise e
