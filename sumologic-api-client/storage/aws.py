@@ -2,6 +2,7 @@ from base import Provider, KeyValueStorage
 import boto3
 from utils import get_logger
 import json
+import os
 import decimal
 from botocore.exceptions import ClientError
 
@@ -21,7 +22,7 @@ class AWSKVStorage(KeyValueStorage):
     VALUE_COL = "value"
     KEY_TYPE = "S"
 
-    def setup(self, name, region_name, key_type=KEY_COL, force_create=False, *args, **kwargs):
+    def setup(self, name, region_name, key_type=KEY_TYPE, force_create=False, *args, **kwargs):
         self.region_name = region_name
         self.dynamodbcli = boto3.resource('dynamodb', region_name=self.region_name)
         self.table_name = name
@@ -32,6 +33,25 @@ class AWSKVStorage(KeyValueStorage):
         if not self.table_exists(self.table_name, self.region_name):
             self._create_table()
 
+    def _replace_decimals(self, obj):
+        if isinstance(obj, list):
+            for i in range(len(obj)):
+                obj[i] = self._replace_decimals(obj[i])
+            return obj
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                obj[k] = self._replace_decimals(v)
+            return obj
+        elif isinstance(obj, set):
+            return set(self._replace_decimals(i) for i in obj)
+        elif isinstance(obj, decimal.Decimal):
+            if obj % 1 == 0:
+                return int(obj)
+            else:
+                return float(obj)
+        else:
+            return obj
+
     def get(self, key):
         table = self.dynamodbcli.Table(self.table_name)
         response = table.get_item(Key={self.KEY_COL: key},
@@ -41,7 +61,7 @@ class AWSKVStorage(KeyValueStorage):
             raise Exception(f'''Error in get_item api: {response}''')
         value = response["Item"][self.VALUE_COL] if response.get("Item") else None
         self.logger.info(f'''Fetched Item from {self.table_name} table''')
-        return value
+        return self._replace_decimals(value)
 
     def set(self, key, value):
         table = self.dynamodbcli.Table(self.table_name)
@@ -144,7 +164,7 @@ class AWSKVStorage(KeyValueStorage):
 class AWSProvider(Provider):  # should we disallow direct access to these classes
 
     def setup(self, *args, **kwargs):
-        self.region_name = kwargs.get('region_name')
+        self.region_name = kwargs.get('region_name', os.getenv("AWS_REGION"))
 
     def get_kvstorage(self, name, *args, **kwargs):
         return AWSKVStorage(name, self.region_name, *args, **kwargs)

@@ -1,5 +1,6 @@
 from factory import ProviderFactory
 import unittest
+import decimal
 
 
 class TestingStorage(unittest.TestCase):
@@ -24,9 +25,17 @@ class TestingStorage(unittest.TestCase):
         self.run_checks(key, value)
 
     def test_object_values(self):
-        #Todo the converted numerical values are returned as Decimal in case of AWS
         key = "abckey"
         value = {"name": "John", "age": 31, "city": ["New York", "Detroit", {"a": 40}], "hobbies": {"cricket": True, "football": False}}
+        self.run_checks(key, value)
+
+    def test_float_keys(self):
+        # testing precision and floating values
+        key = decimal.Decimal('1234567890123.12345678901234567890')
+        value = {"value": decimal.Decimal('1234567890123.12345678901234567890')}
+        self.run_checks(key, value)
+        key = 1234567890123.12345
+        value = {"value": 1234567890123.12345}
         self.run_checks(key, value)
 
     def test_int_keys(self):
