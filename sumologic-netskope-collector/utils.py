@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import time
 from datetime import datetime
 from logger import get_logger

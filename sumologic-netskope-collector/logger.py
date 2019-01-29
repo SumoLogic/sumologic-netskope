@@ -17,7 +17,7 @@ def get_logger(name, LOG_FORMAT=LOG_FORMAT, LOG_FILEPATH=LOG_FILEPATH, ROTATION_
                ENABLE_CONSOLE_LOG=ENABLE_CONSOLE_LOG, force_create=False):
     name = name or __name__
     log = logging.getLogger(name)
-    if log.hasHandlers() or force_create:
+    if (not log.handlers) or force_create:
         if force_create:
             # removing existing handlers
             for hdlr in log.handlers:

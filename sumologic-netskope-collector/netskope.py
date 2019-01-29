@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import traceback
 import sys
 import time
@@ -59,15 +60,14 @@ class NetskopeCollector(object):
         url = self.get_endpoint_url(event_type)
         sess = self.netskope_conn.get_request_session()
         success, respjson = ClientMixin.make_request(url, method=self.FETCH_METHOD, session=sess, params=params)
+        start_date = convert_epoch_to_date(params['starttime'])
+        end_date = convert_epoch_to_date(params['endtime'])
         if success and respjson["status"] == "success" and len(respjson["data"]) > 0:
             obj = self.set_fetch_state(event_type, start_time_epoch, respjson["data"][0]["timestamp"])
-            self.log.info(f'''creating task for {event_type} from {convert_epoch_to_date(params['starttime'])} to {convert_epoch_to_date(
-                    params['endtime'])}''')
+            self.log.info(f'''creating task for {event_type} from {start_date} to {end_date}''')
             return obj
         else:
-            self.log.info(
-                f'''No events are available for {event_type} from {convert_epoch_to_date(params['starttime'])} to {convert_epoch_to_date(
-                    params['endtime'])}''')
+            self.log.info(f'''No events are available for {event_type} from {start_date} to {end_date}''')
             return None
 
     def transform_data(self, data):

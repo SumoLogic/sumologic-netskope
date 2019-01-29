@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -63,7 +64,11 @@ class SessionPool(object):
         self.log = get_logger(__name__)
 
     def get_request_session(self):
-        thread_id = threading.get_ident()
+        try:
+            thread_id = threading.get_ident()
+        except AttributeError:
+            thread_id = threading._get_ident()
+
         if thread_id in self.sessions:
             return self.sessions[thread_id]
         else:

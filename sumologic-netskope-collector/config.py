@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import os
 from utils import get_logger
 import yaml

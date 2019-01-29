@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import importlib
 import sys
 from logger import get_logger
@@ -22,7 +23,7 @@ class BaseFactory(object):
         except Exception as e:
             t, v, tb = sys.exc_info()
             log.error(f"Unable to import Module {full_class_string} Error: {e} Traceback: {tb}")
-            raise t(v).with_traceback(tb)
+            raise
 
 
 class ProviderFactory(BaseFactory):
@@ -53,7 +54,7 @@ class OutputHandlerFactory(BaseFactory):
 
     handlers = {
         "HTTP": "outputhandlers.HTTPHandler",
-        "CONSOLE": "outputhandlers.HTTPHandler",
+        "CONSOLE": "outputhandlers.STDOUTHandler",
     }
 
     @classmethod

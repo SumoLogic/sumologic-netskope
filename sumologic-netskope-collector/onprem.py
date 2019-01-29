@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import shelve
 import threading
 import os
@@ -37,27 +38,35 @@ class OnPremKVStorage(KeyValueStorage):
     def get(self, key):
         key = self._get_actual_key(key)
         value = None
-        with self.lock, shelve.open(self.file_name) as db:
+        with self.lock:
+            db = shelve.open(self.file_name)
             value = db[key]
+            db.close()
         self.logger.info(f'''Fetched Item {key} in {self.file_name} table''')
         return value
 
     def set(self, key, value):
         key = self._get_actual_key(key)
-        with self.lock, shelve.open(self.file_name) as db:
+        with self.lock:
+            db = shelve.open(self.file_name)
             db[key] = value
+            db.close()
         self.logger.info(f'''Saved Item {key} in {self.file_name} table''')
 
     def delete(self, key):
         key = self._get_actual_key(key)
-        with self.lock, shelve.open(self.file_name) as db:
+        with self.lock:
+            db = shelve.open(self.file_name)
             del db[key]
+            db.close()
         self.logger.info(f'''Deleted Item {key} in {self.file_name} table''')
 
     def has_key(self, key):
         key = self._get_actual_key(key)
-        with self.lock, shelve.open(self.file_name) as db:
+        with self.lock:
+            db = shelve.open(self.file_name)
             flag = key in db
+            db.close()
         return flag
 
     def destroy(self):

@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
 from utils import get_logger
+import six
 
-class Provider(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class Provider():
 
     def __init__(self, *args, **kwargs):
         self.setup(*args, **kwargs)
@@ -26,8 +28,8 @@ class Provider(metaclass=ABCMeta):
     def setup(self, *args, **kwargs):
         pass
 
-
-class KeyValueStorage(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class KeyValueStorage():
     #Todo support atomic + updates + batch get/set
 
     def __init__(self, *args, **kwargs):
@@ -57,8 +59,8 @@ class KeyValueStorage(metaclass=ABCMeta):
     def destroy(self):
         pass
 
-
-class BaseOutputHandler(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class BaseOutputHandler():
 
     def __init__(self, *args, **kwargs):
         self.log = get_logger(__name__)

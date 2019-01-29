@@ -1,3 +1,4 @@
+# -*- coding: future_fstrings -*-
 import json
 import sys
 from base import BaseOutputHandler
