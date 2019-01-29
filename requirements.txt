@@ -1,2 +1,2 @@
-boto3==1.9.79
 requests==2.21.0
+PyYAML==3.13

@@ -2,30 +2,38 @@ import sys
 import logging
 import logging.handlers as handlers
 
-#Todo make these in parameter
+
 EXCLUDED_MODULE_LOGGING = ("requests", "urllib3")
 LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(name)s | %(message)s"
 LOG_FILEPATH = "/tmp/sumoapiclient.log"
 ROTATION_TYPE = "D"  # use H for hourly W6 for weekly(ie Sunday)
 ROTATION_INTERVAL = 10  # in hours
+ENABLE_CONSOLE_LOG=True
+ENABLE_LOGFILE=True
 
 
-def get_logger(name, log_format=LOG_FORMAT, log_filepath=LOG_FILEPATH, rotation_type=ROTATION_TYPE,rotation_interval= ROTATION_INTERVAL, filehdlr=True, consolehdlr=False):
+def get_logger(name, LOG_FORMAT=LOG_FORMAT, LOG_FILEPATH=LOG_FILEPATH, ROTATION_TYPE=ROTATION_TYPE,
+               ROTATION_INTERVAL=ROTATION_INTERVAL, ENABLE_LOGFILE=ENABLE_LOGFILE,
+               ENABLE_CONSOLE_LOG=ENABLE_CONSOLE_LOG, force_create=False):
     name = name or __name__
     log = logging.getLogger(name)
-    if not log.handlers:
+    if log.hasHandlers() or force_create:
+        if force_create:
+            # removing existing handlers
+            for hdlr in log.handlers:
+                log.removeHandler(hdlr)
 
         log.setLevel(logging.DEBUG)
-        logFormatter = logging.Formatter(log_format)
+        logFormatter = logging.Formatter(LOG_FORMAT)
 
-        if consolehdlr:
+        if ENABLE_CONSOLE_LOG:
             consoleHandler = logging.StreamHandler(sys.stdout)
             consoleHandler.setFormatter(logFormatter)
             log.addHandler(consoleHandler)
-        if filehdlr:
+        if ENABLE_LOGFILE:
             filehandler = handlers.TimedRotatingFileHandler(
-                log_filepath, backupCount=5,
-                when=rotation_type, interval=rotation_interval,
+                LOG_FILEPATH, backupCount=5,
+                when=ROTATION_TYPE, interval=ROTATION_INTERVAL,
                 # encoding='bz2',  # uncomment for bz2 compression
             )
             # filehandler = logging.FileHandler()

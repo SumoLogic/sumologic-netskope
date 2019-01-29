@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-
+from utils import get_logger
 
 class Provider(metaclass=ABCMeta):
 
@@ -23,7 +23,7 @@ class Provider(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def setup(*args, **kwargs):
+    def setup(self, *args, **kwargs):
         pass
 
 
@@ -55,4 +55,19 @@ class KeyValueStorage(metaclass=ABCMeta):
 
     @abstractmethod
     def destroy(self):
+        pass
+
+
+class BaseOutputHandler(metaclass=ABCMeta):
+
+    def __init__(self, *args, **kwargs):
+        self.log = get_logger(__name__)
+        self.setUp(*args, **kwargs)
+
+    @abstractmethod
+    def setUp(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def send(self, data):
         pass
