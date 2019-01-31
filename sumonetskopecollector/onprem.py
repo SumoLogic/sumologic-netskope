@@ -22,8 +22,11 @@ class OnPremKVStorage(KeyValueStorage):
     '''
     def setup(self, name, force_create=False, *args, **kwargs):
         self.lock = threading.RLock()
-        self.file_name = name
+        cur_dir = os.path.dirname(__file__)
+        self.file_name = os.path.join(cur_dir, name)
         self.logger = get_logger(__name__)
+        msg = "Old db exists" if os.path.isfile(self.file_name+".db") else "Creating new db"
+        self.logger.info(msg)
         if force_create:
             self.destroy()
 

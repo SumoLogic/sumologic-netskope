@@ -8,8 +8,8 @@ LOG_FORMAT = "%(levelname)s | %(asctime)s | %(threadName)s | %(name)s | %(messag
 LOG_FILEPATH = "/tmp/sumoapiclient.log"
 ROTATION_TYPE = "D"  # use H for hourly W6 for weekly(ie Sunday)
 ROTATION_INTERVAL = 10  # in hours
-ENABLE_CONSOLE_LOG=True
-ENABLE_LOGFILE=True
+ENABLE_CONSOLE_LOG = True
+ENABLE_LOGFILE = True
 
 
 def get_logger(name, LOG_FORMAT=LOG_FORMAT, LOG_FILEPATH=LOG_FILEPATH, ROTATION_TYPE=ROTATION_TYPE,

@@ -64,7 +64,7 @@ class NetskopeCollector(object):
         end_date = convert_epoch_to_date(params['endtime'])
         if success and respjson["status"] == "success" and len(respjson["data"]) > 0:
             obj = self.set_fetch_state(event_type, start_time_epoch, respjson["data"][0]["timestamp"])
-            self.log.info(f'''creating task for {event_type} from {start_date} to {end_date}''')
+            self.log.info(f'''Creating task for {event_type} from {start_date} to {end_date}''')
             return obj
         else:
             self.log.info(f'''No events are available for {event_type} from {start_date} to {end_date}''')
@@ -112,7 +112,7 @@ class NetskopeCollector(object):
             next_request = fetch_success and send_success and (not move_window)
             if move_window:
                 self.log.info(
-                    f'''moving starttime window for {event_type} to {convert_epoch_to_date(params["endtime"] + 1)}''')
+                    f'''Moving starttime window for {event_type} to {convert_epoch_to_date(params["endtime"] + 1)}''')
                 self.set_fetch_state(event_type, params["endtime"] + 1, None)
             elif not (fetch_success and send_success):  # saving skip in casee of failures for restarting in future
                 self.set_fetch_state(event_type, params["starttime"], params["endtime"], params["skip"])
@@ -133,7 +133,7 @@ class NetskopeCollector(object):
             if obj is None:  # no new events so continue
                 continue
             tasks.append(obj)
-        self.log.info(f'''building tasks {len(tasks)}''')
+        self.log.info(f'''Building tasks {len(tasks)}''')
         return tasks
 
     def run(self):
@@ -167,11 +167,14 @@ class NetskopeCollector(object):
         self.fetch(**params)
 
 
-if __name__ == '__main__':
+def main():
     try:
         ns = NetskopeCollector()
         ns.run()
         # ns.test()
     except BaseException as e:
         traceback.print_exc()
+
+if __name__ == '__main__':
+    main()
 

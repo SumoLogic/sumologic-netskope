@@ -18,7 +18,7 @@ class HTTPHandler(BaseOutputHandler):
             out = '\n'.join(out)
         else:
             out = data
-        self.log.info(f'posting size {sys.getsizeof(out)}')
+        self.log.info(f'Sending data: size {sys.getsizeof(out)}')
         sess = self.sumoconn.get_request_session()
         headers = {'content-type': 'application/json', 'accept': 'application/json'}
         fetch_success, respjson = ClientMixin.make_request(self.sumo_config['SUMO_ENDPOINT'], method="post",
@@ -41,7 +41,7 @@ class STDOUTHandler(BaseOutputHandler):
             out = '\n'.join(out)
         else:
             out = data
-        self.log.info(f'posting size {sys.getsizeof(out)}')
+        self.log.info(f'Posting data: size {sys.getsizeof(out)}')
         print(out)
         return True
 

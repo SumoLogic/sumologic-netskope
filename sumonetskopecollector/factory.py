@@ -3,6 +3,7 @@ import importlib
 import sys
 from logger import get_logger
 
+
 class BaseFactory(object):
     INIT_FILE = "__init__.py"
 
@@ -15,15 +16,20 @@ class BaseFactory(object):
         #  using importlib https://docs.python.org/3/library/importlib.html find_spec not working in 2.7
         log = get_logger(__name__)
         try:
-            class_data = full_class_string.split(".")
-            module_path = ".".join(class_data[:-1])
-            class_str = class_data[-1]
+            module_path, class_name = cls.split_module_class_name(full_class_string)
             module = importlib.import_module(module_path)
-            return getattr(module, class_str)
+            return getattr(module, class_name)
         except Exception as e:
             t, v, tb = sys.exc_info()
             log.error(f"Unable to import Module {full_class_string} Error: {e} Traceback: {tb}")
             raise
+
+    @classmethod
+    def split_module_class_name(cls, full_class_string):
+        file_name, class_name = full_class_string.rsplit(".", 1)
+        parent_module = __name__.rsplit(".", 1)[0]+"." if "." in __name__ else ""
+        full_module_path = f"{parent_module}{file_name}"
+        return full_module_path, class_name
 
 
 class ProviderFactory(BaseFactory):

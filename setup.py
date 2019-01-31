@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 from os.path import join, dirname, abspath
+import io
 
 here = abspath(dirname(__file__))
 
@@ -11,18 +12,18 @@ with open(join(here, 'requirements.txt')) as REQUIREMENTS:
     INSTALL_REQUIRES = REQUIREMENTS.read().split('\n')
 
 
-with open(join(here, 'README.md'), encoding='utf-8') as f:
+with io.open(join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 
 CONSOLE_SCRIPTS = [
-    'sumologic-netskope-collector=sumologic-netskope-collector.netskope:main'
+    'sumonetskopecollector=sumonetskopecollector.netskope:main'
 ]
 
 setup(
     name="sumologic-netskope-collector",
     version=__versionstr__,
-    packages=find_packages('./'),
+    packages=find_packages(),
     install_requires=INSTALL_REQUIRES,
     # PyPI metadata
     author="SumoLogic",
@@ -34,13 +35,11 @@ setup(
     url="https://github.com/SumoLogic/sumologic-netskope",
     zip_safe=True,
     include_package_data=True,
-    package_data={'sumologic-netskope-collector': [
-        'netskope.conf']
-    },
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.7',
         'Operating System :: OS Independent'
     ],
     entry_points={

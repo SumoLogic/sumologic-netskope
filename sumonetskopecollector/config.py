@@ -8,7 +8,6 @@ log = get_logger(__name__)
 
 class Config(object):
     CONFIG_FILENAME = "netskope.yaml"
-    # Safeconfigparser supports interpolation(using values in same section)
 
     def get_config(self, input_cfgpath=''):
         ''' reads base config and merges with user config'''
@@ -16,7 +15,7 @@ class Config(object):
         base_config_path = os.path.join(cur_dir, self.CONFIG_FILENAME)
         base_config = self.read_config(base_config_path)
         home_dir = os.path.join(os.path.expanduser("~"), self.CONFIG_FILENAME)
-        cfg_locations = [input_cfgpath, home_dir, os.getenv("NETSKOPE_CNF")]
+        cfg_locations = [input_cfgpath, home_dir, os.getenv("NETSKOPE_CNF", '')]
         configpath = self.get_config_path(cfg_locations)
         usercfg = self.read_config(configpath)
         config = self.merge_config(base_config, usercfg)
