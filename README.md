@@ -1,4 +1,4 @@
-# sumologic-netskope
+# sumologic-netskope-collector
 Solution to pull data from Netskope to Sumo Logic
 
 
