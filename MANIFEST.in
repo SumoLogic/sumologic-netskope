@@ -1,0 +1,5 @@
+include README
+include LICENSE
+include VERSION
+include requirements.txt
+include sumonetskopecollector/netskope.yaml
