@@ -19,7 +19,10 @@ class OnPremKVStorage(KeyValueStorage):
     temp = d['xx']             # extracts the copy
     temp.append(5)             # mutates the copy
     d['xx'] = temp
+
+    # default flag mode is c which is different than w because it creates db if it doesn't exists
     '''
+
     def setup(self, name, force_create=False, *args, **kwargs):
         self.lock = threading.RLock()
         cur_dir = os.path.dirname(__file__)
@@ -42,8 +45,8 @@ class OnPremKVStorage(KeyValueStorage):
         key = self._get_actual_key(key)
         value = None
         with self.lock:
-            db = shelve.open(self.file_name)
-            value = db[key]
+            db = shelve.open(self.file_name, flag="r")
+            value = db.get(key)
             db.close()
         self.logger.info(f'''Fetched Item {key} in {self.file_name} table''')
         return value
@@ -60,14 +63,15 @@ class OnPremKVStorage(KeyValueStorage):
         key = self._get_actual_key(key)
         with self.lock:
             db = shelve.open(self.file_name)
-            del db[key]
+            if key in db:
+                del db[key]
             db.close()
         self.logger.info(f'''Deleted Item {key} in {self.file_name} table''')
 
     def has_key(self, key):
         key = self._get_actual_key(key)
         with self.lock:
-            db = shelve.open(self.file_name)
+            db = shelve.open(self.file_name, flag="r")
             flag = key in db
             db.close()
         return flag

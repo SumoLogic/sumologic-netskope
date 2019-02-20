@@ -61,6 +61,7 @@ class OutputHandlerFactory(BaseFactory):
     handlers = {
         "HTTP": "outputhandlers.HTTPHandler",
         "CONSOLE": "outputhandlers.STDOUTHandler",
+        "FILE": "outputhandlers.FileHandler"
     }
 
     @classmethod

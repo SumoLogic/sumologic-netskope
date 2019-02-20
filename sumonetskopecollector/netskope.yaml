@@ -1,7 +1,7 @@
 Netskope:
  TOKEN: "<Netskope API Token>"
- NETSKOPE_EVENT_ENDPOINT: https://partners.goskope.com/api/v1/events
- NETSKOPE_ALERT_ENDPOINT: https://partners.goskope.com/api/v1/alerts
+ NETSKOPE_EVENT_ENDPOINT: <netskope domain>/api/v1/events
+ NETSKOPE_ALERT_ENDPOINT: <netskope domain>/api/v1/alerts
  EVENT_TYPES:
   - page
   - application
@@ -35,6 +35,8 @@ Collection:
  MAX_RETRY: 5
  BACKOFF_FACTOR: 1
  TIMEOUT: 60
+ COMPRESSED: true
+ MAX_PAYLOAD_BYTESIZE: 500000
 
 SumoLogic:
  SUMO_ENDPOINT: "<SUMO HTTP SOURCE ENDPOINT>"

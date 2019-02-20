@@ -33,7 +33,7 @@ class ClientMixin(object):
             if 400 <= resp.status_code < 600:
                 resp.reason = resp.text
             resp.raise_for_status()
-            log.info(f'''Fetched url: {url} status_code: {resp.status_code}''')
+            log.info(f'''{method} Request url: {url} status_code: {resp.status_code}''')
             if resp.status_code == 200:
                 data = resp.json() if len(resp.content) > 0 else {}
                 return True, data

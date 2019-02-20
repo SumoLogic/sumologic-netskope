@@ -28,7 +28,6 @@ class NetskopeCollector(object):
         self.TOKEN = self.config['Netskope']['TOKEN']
         self.FETCH_METHOD = self.config['Netskope']['FETCH_METHOD']
         self.DEFAULT_START_TIME_EPOCH = get_current_timestamp() - self.config['Netskope']['BACKFILL_DAYS']*24*60*60
-        self.output_handler = OutputHandlerFactory.get_handler(self.config['Collection']['OUTPUT_HANDLER'], config=self.config)
 
     def get_endpoint_url(self, event_type):
         if event_type in self.ALERT_TYPES:
@@ -37,6 +36,8 @@ class NetskopeCollector(object):
             return self.NETSKOPE_EVENT_ENDPOINT
 
     def set_fetch_state(self, event_type, start_time_epoch, end_time_epoch, skip=0):
+        if end_time_epoch:  # end time epoch could be none in cases where no event is present
+            assert start_time_epoch <= end_time_epoch
         obj = {
             "skip": skip,
             'url': self.get_endpoint_url(event_type),
@@ -60,6 +61,7 @@ class NetskopeCollector(object):
         url = self.get_endpoint_url(event_type)
         sess = self.netskope_conn.get_request_session()
         success, respjson = ClientMixin.make_request(url, method=self.FETCH_METHOD, session=sess, params=params)
+        self.netskope_conn.close()
         start_date = convert_epoch_to_date(params['starttime'])
         end_date = convert_epoch_to_date(params['endtime'])
         if success and respjson["status"] == "success" and len(respjson["data"]) > 0:
@@ -88,35 +90,38 @@ class NetskopeCollector(object):
             'skip': skip,
             'type': event_type
         }
-
+        output_handler = OutputHandlerFactory.get_handler(self.config['Collection']['OUTPUT_HANDLER'], config=self.config)
         next_request = send_success = True
         count = 0
         move_window = False
-        while next_request:
-            count += 1
-            sess = self.netskope_conn.get_request_session()
-            fetch_success, respjson = ClientMixin.make_request(url, method=self.FETCH_METHOD, session=sess, params=params)
-            if fetch_success and respjson["status"] == "success":
-                data = respjson["data"]
-                if len(data) > 0:
-                    data = self.transform_data(data)
-                    send_success = self.output_handler.send(data)
-                    if send_success:
-                        params['skip'] += len(data)
-                else:  # no data so moving window
-                    move_window = True
-                self.log.info(f'''Finished Fetching Page: {count} Event Type: {event_type} Datalen: {len(
-                    data)} Next_Request: {next_request} starttime: {convert_epoch_to_date(
-                    start_time_epoch)} endtime: {convert_epoch_to_date(end_time_epoch)}''')
+        sess = self.netskope_conn.get_request_session()
+        try:
+            while next_request:
+                count += 1
+                fetch_success, respjson = ClientMixin.make_request(url, method=self.FETCH_METHOD, session=sess, params=params)
+                if fetch_success and respjson["status"] == "success":
+                    data = respjson["data"]
+                    if len(data) > 0:
+                        data = self.transform_data(data)
+                        send_success = output_handler.send(data)
+                        if send_success:
+                            params['skip'] += len(data)
+                    else:  # no data so moving window
+                        move_window = True
+                    self.log.info(f'''Finished Fetching Page: {count} Event Type: {event_type} Datalen: {len(
+                        data)} Next_Request: {next_request} starttime: {convert_epoch_to_date(
+                        start_time_epoch)} endtime: {convert_epoch_to_date(end_time_epoch)}''')
 
-            next_request = fetch_success and send_success and (not move_window)
-            if move_window:
-                self.log.info(
-                    f'''Moving starttime window for {event_type} to {convert_epoch_to_date(params["endtime"] + 1)}''')
-                self.set_fetch_state(event_type, params["endtime"] + 1, None)
-            elif not (fetch_success and send_success):  # saving skip in casee of failures for restarting in future
-                self.set_fetch_state(event_type, params["starttime"], params["endtime"], params["skip"])
-
+                next_request = fetch_success and send_success and (not move_window)
+                if move_window:
+                    self.log.info(
+                        f'''Moving starttime window for {event_type} to {convert_epoch_to_date(params["endtime"] + 1)}''')
+                    self.set_fetch_state(event_type, params["endtime"] + 1, None)
+                elif not (fetch_success and send_success):  # saving skip in casee of failures for restarting in future
+                    self.set_fetch_state(event_type, params["starttime"], params["endtime"], params["skip"])
+        finally:
+            self.netskope_conn.close()
+            output_handler.close()
         self.log.info(f''' Total messages fetched {params['skip'] - skip} for Event Type: {event_type}''')
 
     def build_task_params(self):
@@ -153,8 +158,6 @@ class NetskopeCollector(object):
                 self.log.error(f'''Event Type: {event_type} thread generated an exception: {exc}''', exc_info=True)
             else:
                 self.log.info(f'''Event Type: {event_type} thread completed {obj}''')
-            finally:
-                self.netskope_conn.close()
 
     def test(self):
         params = {
@@ -174,6 +177,7 @@ def main():
         # ns.test()
     except BaseException as e:
         traceback.print_exc()
+
 
 if __name__ == '__main__':
     main()

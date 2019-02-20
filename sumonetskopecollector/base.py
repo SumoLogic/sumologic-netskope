@@ -41,6 +41,7 @@ class KeyValueStorage():
 
     @abstractmethod
     def get(self, key):
+        # returns  none if no key found
         pass
 
     @abstractmethod
@@ -49,6 +50,7 @@ class KeyValueStorage():
 
     @abstractmethod
     def delete(self, key):
+        # does not throw exception if no key exists
         pass
 
     @abstractmethod
