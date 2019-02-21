@@ -64,12 +64,15 @@ class SessionPool(object):
         self.backoff = backoff
         self.log = get_logger(__name__)
 
-    def get_request_session(self):
+    def get_thread_id(self):
         try:
             thread_id = threading.get_ident()
         except AttributeError:
             thread_id = threading._get_ident()
+        return thread_id
 
+    def get_request_session(self):
+        thread_id = self.get_thread_id()
         if thread_id in self.sessions:
             return self.sessions[thread_id]
         else:
@@ -84,7 +87,7 @@ class SessionPool(object):
             v.close()
 
     def close(self):
-        thread_id = threading.get_ident()
+        thread_id = self.get_thread_id()
         self.log.info(f'Deleting session for {thread_id}')
         if thread_id in self.sessions:
             self.sessions[thread_id].close()
