@@ -2,7 +2,7 @@
 import json
 import sys
 import math
-import gzip
+import zlib
 from base import BaseOutputHandler
 from client import SessionPool, ClientMixin
 from utils import get_body
@@ -16,11 +16,13 @@ class HTTPHandler(BaseOutputHandler):
         self.sumoconn = SessionPool(self.collection_config['MAX_RETRY'], self.collection_config['BACKOFF_FACTOR'])
 
     def send(self, data, extra_headers=None):
+        if not data:
+            return
         sess = self.sumoconn.get_request_session()
         headers = {
             "content-type": "application/json",
             "accept": "application/json",
-            "X-Sumo-Client": "sumologic-netskope"
+            "X-Sumo-Client": "sumologic-netskope-collector"
         }
 
         if extra_headers:
@@ -32,8 +34,8 @@ class HTTPHandler(BaseOutputHandler):
             body = get_body(batch)
             self.log.info(f'''Sending batch {idx} len: {len(body)}''')
             if self.collection_config.get("COMPRESSED", True):
-                body = gzip.compress(body, compresslevel=1)
-                headers.update({"Content-Encoding": "gzip"})
+                body = zlib.compress(body)
+                headers.update({"Content-Encoding": "deflate"})
 
             fetch_success, respjson = ClientMixin.make_request(self.sumo_config['SUMO_ENDPOINT'], method="post",
                                                                session=sess, data=body,
@@ -63,10 +65,10 @@ class HTTPHandler(BaseOutputHandler):
     def get_chunk_size(cls, data, MAX_SIZE=500*1000):
         body = get_body(data)
         total_bytes = cls.utf8len(body)
-        batch_count = math.ceil(total_bytes/MAX_SIZE*1.0)
-        chunk_size = math.floor(len(data)/batch_count*1.0)
+        batch_count = math.ceil(total_bytes/(MAX_SIZE*1.0))
+        chunk_size = math.floor(len(data)/(batch_count*1.0))
         chunk_size = 1 if chunk_size == 0 else chunk_size
-        return batch_count, chunk_size
+        return int(batch_count), int(chunk_size)
 
 
 class STDOUTHandler(BaseOutputHandler):
@@ -75,6 +77,8 @@ class STDOUTHandler(BaseOutputHandler):
         pass
 
     def send(self, data):
+        if not data:
+            return
         body = get_body(data)
         self.log.info(f'Posting data: len {len(body)}')
         print(body)
@@ -91,6 +95,8 @@ class FileHandler(BaseOutputHandler):
         self.fp = open(self.filepath, "a")
 
     def send(self, data):
+        if not data:
+            return
         body = get_body(data)
         self.log.info(f'Posting data: len {len(body)}')
         self.fp.write(body)
