@@ -49,12 +49,12 @@ class OnPremKVStorage(KeyValueStorage):
             return str(key)
         return key
 
-    def get(self, key):
+    def get(self, key, default=None):
         key = self._get_actual_key(key)
         value = None
         with self.lock:
             db = shelve.open(self.file_name, flag="r")
-            value = db.get(key)
+            value = db.get(key, default)
             db.close()
         self.logger.info(f'''Fetched Item {key} in {self.file_name} table''')
         return value
