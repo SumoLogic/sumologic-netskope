@@ -28,10 +28,18 @@ class OnPremKVStorage(KeyValueStorage):
         cur_dir = os.path.dirname(__file__)
         self.file_name = os.path.join(cur_dir, name)
         self.logger = get_logger(__name__)
-        msg = "Old db exists" if os.path.isfile(self.file_name+".db") else "Creating new db"
-        self.logger.info(msg)
         if force_create:
             self.destroy()
+        self.create_db()
+
+    def create_db(self):
+        if os.path.isfile(self.file_name+".db"):
+            msg = "Old db exists"
+        else:
+            msg = "Creating new db"
+            db = shelve.open(self.file_name)
+            db.close()
+        self.logger.info(msg)
 
     def _get_actual_key(self, key):
         ''' in shelve keys needs to be string therefore converting them to strings

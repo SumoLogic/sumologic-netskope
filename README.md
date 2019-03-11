@@ -44,8 +44,7 @@ Solution to pull data from Netskope to Sumo Logic
 
       ```
     * Create a cron job  for running the collector every 5 minutes by using the crontab -e and adding the below line
-
-        `*/5 * * * *  sumonetskopecollector   /dev/null 2>&1`
+        `*/5 * * * *  /usr/bin/python -m sumonetskopecollector.netskope > /dev/null 2>&1`
 
 
 
