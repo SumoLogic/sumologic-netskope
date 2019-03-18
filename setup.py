@@ -31,6 +31,7 @@ setup(
     description="Sumo Logic collection solution for netskope",
     license="PSF",
     long_description=long_description,
+    long_description_content_type='text/markdown',
     keywords="sumologic python rest api log management analytics logreduce netskope agent security siem collector forwarder",
     url="https://github.com/SumoLogic/sumologic-netskope",
     zip_safe=True,
