@@ -17,8 +17,8 @@ Netskope:
   - Quarantine
   - Policy
  FETCH_METHOD: get
- PAGINATION_LIMIT: 100
- BACKFILL_DAYS: 7
+ PAGINATION_LIMIT: 2000
+ BACKFILL_DAYS: 0
 
 Logging:
  LOG_FORMAT: "%(levelname)s | %(asctime)s | %(threadName)s | %(name)s | %(message)s"
@@ -30,7 +30,7 @@ Logging:
 
 Collection:
  ENVIRONMENT: onprem
- NUM_WORKERS: 8
+ NUM_WORKERS: 1
  OUTPUT_HANDLER: HTTP
  MAX_RETRY: 5
  BACKOFF_FACTOR: 1
