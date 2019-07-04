@@ -1,4 +1,5 @@
 # -*- coding: future_fstrings -*-
+
 import traceback
 import sys
 import time
@@ -12,6 +13,8 @@ from config import Config
 
 
 class NetskopeCollector(object):
+
+    SINGLE_PROCESS_LOCK_KEY = 'is_netskope_running'
 
     def __init__(self):
         cfgpath = sys.argv[1] if len(sys.argv) > 1 else ''
@@ -71,6 +74,14 @@ class NetskopeCollector(object):
         else:
             self.log.info(f'''No events are available for {event_type} from {start_date} to {end_date}''')
             return None
+
+    def is_running(self):
+        self.log.info("Acquiring single instance lock")
+        return self.kvstore.acquire_lock(self.SINGLE_PROCESS_LOCK_KEY)
+
+    def stop_running(self):
+        self.log.info("Releasing single instance lock")
+        return self.kvstore.release_lock(self.SINGLE_PROCESS_LOCK_KEY)
 
     def transform_data(self, data):
         # import random
@@ -134,6 +145,7 @@ class NetskopeCollector(object):
                 if obj["end_time_epoch"] is None:
                     obj = self.set_new_end_epoch_time(et, obj["start_time_epoch"])
             else:
+                # self.set_fetch_state(et, self.DEFAULT_START_TIME_EPOCH, None)
                 obj = self.set_new_end_epoch_time(et, self.DEFAULT_START_TIME_EPOCH)
             if obj is None:  # no new events so continue
                 continue
@@ -142,22 +154,29 @@ class NetskopeCollector(object):
         return tasks
 
     def run(self):
-        self.log.info('Starting Netskope Event Forwarder...')
-        task_params = self.build_task_params()
-        all_futures = {}
-        with futures.ThreadPoolExecutor(max_workers=self.config['Collection']['NUM_WORKERS']) as executor:
-            results = {executor.submit(self.fetch, **param): param for param in task_params}
-            all_futures.update(results)
-        for future in futures.as_completed(all_futures):
-            param = all_futures[future]
-            event_type = param["event_type"]
+        if self.is_running():
             try:
-                future.result()
-                obj = self.kvstore.get(event_type)
-            except Exception as exc:
-                self.log.error(f'''Event Type: {event_type} thread generated an exception: {exc}''', exc_info=True)
-            else:
-                self.log.info(f'''Event Type: {event_type} thread completed {obj}''')
+                self.log.info('Starting Netskope Event Forwarder...')
+                task_params = self.build_task_params()
+                all_futures = {}
+                self.log.info("spawning %d workers" % self.config['Collection']['NUM_WORKERS'])
+                with futures.ThreadPoolExecutor(max_workers=self.config['Collection']['NUM_WORKERS']) as executor:
+                    results = {executor.submit(self.fetch, **param): param for param in task_params}
+                    all_futures.update(results)
+                for future in futures.as_completed(all_futures):
+                    param = all_futures[future]
+                    event_type = param["event_type"]
+                    try:
+                        future.result()
+                        obj = self.kvstore.get(event_type)
+                    except Exception as exc:
+                        self.log.error(f'''Event Type: {event_type} thread generated an exception: {exc}''', exc_info=True)
+                    else:
+                        self.log.info(f'''Event Type: {event_type} thread completed {obj}''')
+            finally:
+                self.stop_running()
+        else:
+            self.kvstore.release_lock_on_expired_key(self.SINGLE_PROCESS_LOCK_KEY)
 
     def test(self):
         params = {

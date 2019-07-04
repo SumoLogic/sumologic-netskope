@@ -25,6 +25,9 @@ setup(
     version=__versionstr__,
     packages=find_packages(),
     install_requires=INSTALL_REQUIRES,
+    extras_require={
+        ':python_version == "2.7"': ['futures']
+    },
     # PyPI metadata
     author="SumoLogic",
     author_email="it@sumologic.com",

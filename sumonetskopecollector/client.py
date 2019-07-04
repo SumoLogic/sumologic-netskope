@@ -51,7 +51,9 @@ class ClientMixin(object):
             log.error(f'''Timeout Error:{err} {resp.content} {resp.status_code} {kwargs} {time_elapsed}''', exc_info=True)
         except requests.exceptions.RequestException as err:
             log.error(f'''Error: {err} {resp.content} {resp.status_code} {kwargs}''', exc_info=True)
-
+        finally:
+            if not session:
+                sess.close()
         return False, None
 
 

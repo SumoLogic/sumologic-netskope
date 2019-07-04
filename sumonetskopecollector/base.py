@@ -61,6 +61,21 @@ class KeyValueStorage():
     def destroy(self):
         pass
 
+    @abstractmethod
+    def acquire_lock(self, key):
+        pass
+
+    @abstractmethod
+    def release_lock(self, key):
+        pass
+
+    def _get_lock_key(self, key):
+        return "lockon_%s" % key
+
+    def release_lock_on_expired_key(self, key):
+        pass
+
+
 @six.add_metaclass(ABCMeta)
 class BaseOutputHandler():
 

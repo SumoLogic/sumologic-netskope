@@ -2,9 +2,22 @@
 import shelve
 import threading
 import os
-from utils import get_logger
-from base import Provider, KeyValueStorage
+import sys
 import datetime
+import tempfile
+import time
+
+if __name__ == "__main__":
+    cur_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    sys.path.insert(0, cur_dir)
+
+from utils import get_logger
+from factory import ProviderFactory
+from base import Provider, KeyValueStorage
+
+
+if sys.platform != "win32":
+    import fcntl
 
 
 class OnPremKVStorage(KeyValueStorage):
@@ -22,8 +35,10 @@ class OnPremKVStorage(KeyValueStorage):
 
     # default flag mode is c which is different than w because it creates db if it doesn't exists
     '''
+    LOCK_DATE_KEY = "last_locked_date"
 
     def setup(self, name, force_create=False, *args, **kwargs):
+        self.key_locks = {}
         self.lock = threading.RLock()
         cur_dir = os.path.dirname(__file__)
         self.file_name = os.path.join(cur_dir, name)
@@ -94,6 +109,80 @@ class OnPremKVStorage(KeyValueStorage):
         except OSError as e:
             raise Exception(f'''Error in removing {e.filename}:  {e.strerror}''')
 
+    def acquire_lock(self, key):
+        # In onprem the number of lock keys should fit in memory ie self.key_locks
+        # In onprem these are actually process level locks so another process won't be able to access the key. This is because thread level locking is implemented via self.Lock
+        # Todo move to context manager and have exclusive and shared lock option
+        lockkey = self._get_lock_key(key)
+        lockfile = os.path.normpath(tempfile.gettempdir() + '/' + lockkey)
+
+        if sys.platform == 'win32':
+            try:
+                # file already exists, we try to remove (in case previous
+                # execution was interrupted)
+                if os.path.exists(lockfile):
+                    os.unlink(lockfile)
+                self.key_locks[lockkey] = os.open(lockfile, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NONBLOCK) # is this non blocking?
+                self.logger.debug("acquired_lock lockfile: %s" % lockfile)
+                self.set(lockkey, {self.LOCK_DATE_KEY: time.time()})
+                return True
+            except OSError:
+                _, e, tb = sys.exc_info()
+                if e.errno == 13:
+                    self.logger.warning("Another instance is already running, quitting. %s" % (e))
+                    return False
+                else:
+                    raise
+        else:  # non Windows
+            if lockkey not in self.key_locks:
+                self.key_locks[lockkey] = open(lockfile, 'w')
+                self.key_locks[lockkey].flush()
+            try:
+                fcntl.lockf(self.key_locks[lockkey], fcntl.LOCK_EX | fcntl.LOCK_NB) # non blocking
+                self.logger.debug("acquired_lock lockfile: %s" % lockfile)
+                self.set(lockkey, {self.LOCK_DATE_KEY: time.time()})
+                return True
+            except IOError:
+                self.logger.warning("Another instance is already running, quitting.")
+                return False
+
+    def release_lock(self, key):
+        lockkey = self._get_lock_key(key)
+        lockfile = os.path.normpath(tempfile.gettempdir() + '/' + lockkey)
+        if lockkey in self.key_locks:
+            try:
+                if sys.platform == 'win32':
+                    os.close(self.key_locks[lockkey])
+                else:
+                    fcntl.lockf(self.key_locks[lockkey], fcntl.LOCK_UN)
+                    # os.close(self.fp)
+                    self.key_locks[lockkey].close()
+                if os.path.isfile(lockfile):
+                    os.unlink(lockfile)
+                del self.key_locks[lockkey]
+                self.delete(lockkey)
+                self.logger.debug("released_lock lockfile: %s" % lockfile)
+                return True
+            except Exception as e:
+                self.logger.error("release_lock error")
+                raise
+        else:
+            self.logger.warning("lock not found lockfile: %s" % lockfile)
+            return False
+
+    def release_lock_on_expired_key(self, key, expiry_min=5):
+        lock_key = self._get_lock_key(key)
+        data = self.get(lock_key)
+        if data and self.LOCK_DATE_KEY in data:
+            now = time.time()
+            past = data[self.LOCK_DATE_COL]
+            if (now - past) > expiry_min * 60:
+                self.logger.info(f'''Lock time expired key: {key} passed time: {(now-past)/60} min''')
+                self.release_lock(key)
+        else:
+            lockfile = os.path.normpath(tempfile.gettempdir() + '/' + lock_key)
+            self.logger.info("remove lock forcefully by removing %s" % lockfile)
+
 
 class OnPremProvider(Provider):
 
@@ -104,3 +193,27 @@ class OnPremProvider(Provider):
         return OnPremKVStorage(name, *args, **kwargs)
 
 
+
+if __name__ == "__main__":
+
+    key = "abc"
+    value = {"name": "Himanshu"}
+    cli = ProviderFactory.get_provider("onprem")
+    kvstore = cli.get_storage("keyvalue", name='kvstore', force_create=True)
+
+    cli2 = ProviderFactory.get_provider("onprem")
+    kvstore2 = cli.get_storage("keyvalue", name='kvstore', force_create=True)
+
+    kvstore.set(key, value)
+    assert(kvstore.get(key) == value)
+    assert(kvstore.has_key(key) == True)
+    kvstore.delete(key)
+    assert(kvstore.has_key(key) == False)
+    # import ipdb;ipdb.set_trace()
+    assert(kvstore.acquire_lock(key) == True)
+    assert(kvstore2.acquire_lock(key) == True)
+    assert(kvstore.acquire_lock("blah") == True)
+    assert(kvstore.release_lock(key) == True)
+    assert(kvstore.release_lock(key) == False)
+    assert(kvstore.release_lock("blahblah") == False)
+    kvstore.destroy()
