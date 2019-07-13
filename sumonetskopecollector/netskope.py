@@ -114,21 +114,23 @@ class NetskopeCollector(BaseCollector):
                         send_success = output_handler.send(data)
                         if send_success:
                             params['skip'] += len(data)
-                        else:
-                            self.log.info(f'''Failed to send {event_type}''')
+                            self.log.info(f'''Successfully Sent Page: {count} Event Type: {event_type} Datalen: {len(
+                                data)} starttime: {convert_epoch_to_utc_date(
+                                start_time_epoch)} endtime: {convert_epoch_to_utc_date(end_time_epoch)}''')
+
                     else:  # no data so moving window
                         move_window = True
-                    self.log.info(f'''Finished Fetching Page: {count} Event Type: {event_type} Datalen: {len(
-                        data)} starttime: {convert_epoch_to_utc_date(
-                        start_time_epoch)} endtime: {convert_epoch_to_utc_date(end_time_epoch)}''')
 
                 next_request = fetch_success and send_success and (not move_window)
                 if move_window:
-                    self.log.info(
+                    self.log.debug(
                         f'''Moving starttime window for {event_type} to {convert_epoch_to_utc_date(params["endtime"] + 1)}''')
                     self.set_fetch_state(event_type, params["endtime"] + 1, None)
                 elif not (fetch_success and send_success):  # saving skip in casee of failures for restarting in future
                     self.set_fetch_state(event_type, params["starttime"], params["endtime"], params["skip"])
+                    self.log.error(
+                        f'''Failed to send Event Type: {event_type} Page: {count} starttime: {convert_epoch_to_utc_date(
+                            start_time_epoch)} endtime: {convert_epoch_to_utc_date(end_time_epoch)} fetch_success: {fetch_success} send_success: {send_success}''')
         finally:
             self.netskope_conn.close()
             output_handler.close()
