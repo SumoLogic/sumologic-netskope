@@ -3,3 +3,5 @@ SumoLogic:
 
 Netskope:
  TOKEN: <NETSKOPE API TOKEN>
+ NETSKOPE_EVENT_ENDPOINT: <netskope domain>/api/v1/events
+ NETSKOPE_ALERT_ENDPOINT: <netskope domain>/api/v1/alerts
