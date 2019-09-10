@@ -18,7 +18,7 @@ Solution to pull data from Netskope to Sumo Logic
       Format: epoch
       Timestamp locator:  `\"timestamp\": (.*),`
 
-3. Configuring the sumologic-netskope collector
+3. Method 1 - Configuring the sumologic-netskope collector
     Below instructions assume pip is already installed if not then, see the pip [docs](https://pip.pypa.io/en/stable/installing/) on how to download and install pip.
 
 
@@ -46,5 +46,25 @@ Solution to pull data from Netskope to Sumo Logic
     * Create a cron job  for running the collector every 5 minutes by using the crontab -e and adding the below line
         `*/5 * * * *  /usr/bin/python -m sumonetskopecollector.netskope > /dev/null 2>&1`
 
+
+    Method 2 - Collection via an AWS Lambda function
+   To install Sumo Logic’s AWS Lambda script, follow the instructions below:
+
+    * Go to https://serverlessrepo.aws.amazon.com/applications
+Search for “sumologic-mongodb-atlas” and select the app as shown below:
+
+    * When the page for the Sumo app appears as shown below, click the Deploy button as shown below:
+
+
+    * In the Configure application parameters panel, shown below:
+
+
+
+        * NetskopeAlertEndpoint: Paste the Alert API endpoint <https://<you domain>/api/v1/alerts>
+        * NetskopeEventEndpoint: Paste the Events API endpoint <https://<you domain>/api/v1/events>
+        * SumoEndpoint: Paste the URL for the HTTP Logs source from step 2.
+        * Token: Paste the API token from step 1.
+
+    * Click Deploy.
 
 

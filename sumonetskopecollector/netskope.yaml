@@ -1,7 +1,7 @@
 Netskope:
- TOKEN: "<Netskope API Token>"
- NETSKOPE_EVENT_ENDPOINT: <netskope domain>/api/v1/events
- NETSKOPE_ALERT_ENDPOINT: <netskope domain>/api/v1/alerts
+ TOKEN: null
+ NETSKOPE_EVENT_ENDPOINT: null
+ NETSKOPE_ALERT_ENDPOINT: null
  EVENT_TYPES:
   - page
   - application
@@ -46,6 +46,7 @@ DeployMetaData:
  PACKAGENAME: "sumologic-netskope-collector"
  APPNAME: "Netskope"
  SRC_FOLDER_NAME: "sumonetskopecollector"
+ ENABLE_LAYER: false
 
 SumoLogic:
- SUMO_ENDPOINT: "<SUMO HTTP SOURCE ENDPOINT>"
+ SUMO_ENDPOINT: null

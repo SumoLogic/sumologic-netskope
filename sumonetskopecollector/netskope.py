@@ -81,11 +81,6 @@ class NetskopeCollector(BaseCollector):
         return self.kvstore.release_lock(self.SINGLE_PROCESS_LOCK_KEY)
 
     def transform_data(self, data):
-        # import random
-        # srcip = ["216.161.180.148", "54.203.63.36"]
-        # for d in data:
-        #     d["timestamp"] = int(time.time())
-        #     d["srcip"] = random.choice(srcip)
         return data
 
     def fetch(self, url, event_type, start_time_epoch, end_time_epoch, skip):
@@ -192,7 +187,7 @@ class NetskopeCollector(BaseCollector):
         self.fetch(**params)
 
 
-def main():
+def main(*args, **kwargs):
     try:
         ns = NetskopeCollector()
         ns.run()
