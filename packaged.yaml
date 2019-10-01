@@ -15,10 +15,10 @@ Metadata:
     - atlas
     - serverless
     - Netskope
-    LicenseUrl: s3://appdevstore/Netskope/v3.0.0/8cb965612283cc3fbd4c181a689210b7
+    LicenseUrl: s3://appdevstore/Netskope/v1.0.1/8cb965612283cc3fbd4c181a689210b7
     Name: sumologic-netskope-collector
-    ReadmeUrl: s3://appdevstore/Netskope/v3.0.0/d9c3c06b458cfe6a1bc4814bb82519bc
-    SemanticVersion: 3.0.0
+    ReadmeUrl: s3://appdevstore/Netskope/v1.0.1/4cdc33b3fd722adecfc59fa46ed8cb2d
+    SemanticVersion: 1.0.1
     SourceCodeUrl: https://github.com/SumoLogic/sumologic-netskope-collector
     SpdxLicenseId: Apache-2.0
 Outputs:
@@ -40,7 +40,7 @@ Parameters:
 Resources:
   NetskopeFunction:
     Properties:
-      CodeUri: s3://appdevstore/Netskope/v3.0.0/8f9942c0f8f41586508ab904291271ab
+      CodeUri: s3://appdevstore/Netskope/v1.0.1/7abe6042858a97542472d56e745da05f
       Description: This function gets triggered perodically via CloudWatchEvents and
         fetches logs from Netskope and ingest to SumoLogic
       Environment:

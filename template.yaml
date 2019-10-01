@@ -18,7 +18,7 @@ Metadata:
     LicenseUrl: ./LICENSE
     Name: sumologic-netskope-collector
     ReadmeUrl: ./README.md
-    SemanticVersion: 3.0.0
+    SemanticVersion: 1.0.1
     SourceCodeUrl: https://github.com/SumoLogic/sumologic-netskope-collector
     SpdxLicenseId: Apache-2.0
 Outputs:
