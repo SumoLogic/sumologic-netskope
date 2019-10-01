@@ -12,7 +12,6 @@ from sumoappclient.sumoclient.httputils import ClientMixin, SessionPool
 from sumoappclient.common.utils import get_current_timestamp, convert_epoch_to_utc_date
 
 
-
 class NetskopeCollector(BaseCollector):
 
     SINGLE_PROCESS_LOCK_KEY = 'is_netskopecollector_running'
@@ -173,7 +172,8 @@ class NetskopeCollector(BaseCollector):
                 self.stop_running()
                 self.netskope_conn.closeall()
         else:
-            self.kvstore.release_lock_on_expired_key(self.SINGLE_PROCESS_LOCK_KEY)
+            if not self.is_process_running(["sumonetskopecollector", "netskope.py"]):
+                self.kvstore.release_lock_on_expired_key(self.SINGLE_PROCESS_LOCK_KEY)
 
     def test(self):
         params = {
