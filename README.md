@@ -51,7 +51,7 @@ Solution to pull data from Netskope to Sumo Logic
    To install Sumo Logic’s AWS Lambda script, follow the instructions below:
 
     * Go to https://serverlessrepo.aws.amazon.com/applications
-Search for “sumologic-mongodb-atlas” and select the app as shown below:
+Search for “sumologic-netskope-collector” and select the app as shown below:
 
     * When the page for the Sumo app appears as shown below, click the Deploy button as shown below:
 
