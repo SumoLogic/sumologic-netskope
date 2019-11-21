@@ -97,13 +97,14 @@ class NetskopeCollector(BaseCollector):
     def get_last_record_epoch(self, obj):
         params = {
             'token': self.api_config['TOKEN'],
-            'limit': self.api_config['PAGINATION_LIMIT'],
+            'limit': 1,
             'starttime': obj['start_time_epoch'],
             'endtime': obj['end_time_epoch'],
             'skip': obj['skip'],
             'type': obj['event_type']
         }
-        params['skip'] -= 1
+        if params['skip'] > 0:
+            params['skip'] -= 1
         success, respjson = ClientMixin.make_request(obj['url'], method=self.api_config['FETCH_METHOD'], session=self.netskope_session, params=params, logger=self.log, TIMEOUT=self.collection_config['TIMEOUT'], MAX_RETRY=self.collection_config['MAX_RETRY'], BACKOFF_FACTOR=self.collection_config['BACKOFF_FACTOR'])
         start_date = convert_epoch_to_utc_date(params['starttime'])
         end_date = convert_epoch_to_utc_date(params['endtime'])
@@ -113,12 +114,9 @@ class NetskopeCollector(BaseCollector):
             self.log.info(f'''last record for {obj['event_type']} from {params['starttime']} to {params['endtime']} skip: {params['skip']} is {last_record_date}''')
             return last_record_epoch
         else:
-            self.log.info("Taking last_record_epoch as input from user")
-            last_record_epoch = stdinWait("Enter last record timestamp for %s > " % obj['event_type'], 15)
-            if not last_record_epoch:
-                raise Exception(f'''last record for {obj['event_type']} from {params['starttime']} to {params['endtime']} skip: {params['skip']} not found''')
-            else:
-                last_record_epoch = int(last_record_epoch)
+            self.log.info("Response: %s" % respjson)
+            self.log.info("Setting end time epoch as last_record_epoch")
+            last_record_epoch = obj['end_time_epoch']
             return last_record_epoch
 
     def fetch(self, url, event_type, start_time_epoch, end_time_epoch, last_record_epoch):
@@ -157,9 +155,10 @@ class NetskopeCollector(BaseCollector):
                             self.log.info(f'''Successfully Sent Page: {page_count} Event Type: {event_type} Datalen: {len(
                                 data)} starttime: {convert_epoch_to_utc_date(
                                 params['starttime'])} endtime: {convert_epoch_to_utc_date(params['endtime'])} skip: {params['skip']} last_record_epoch: {convert_epoch_to_utc_date(last_record_epoch)}''')
-
                     else:  # no data so moving window
                         move_window = True
+                else:
+                    self.log.error("Unable to fetch Response %s" % respjson)
 
                 next_request = fetch_success and send_success and (not move_window)
                 if move_window:
@@ -192,6 +191,7 @@ class NetskopeCollector(BaseCollector):
                 obj = self.set_new_end_epoch_time(et, self.DEFAULT_START_TIME_EPOCH)
             if obj is None:  # no new events so continue
                 continue
+
             if "skip" in obj:
                 # for backward compatibility
                 if ("last_record_epoch" not in obj) or (obj["last_record_epoch"] is None and obj['skip'] > 0):
