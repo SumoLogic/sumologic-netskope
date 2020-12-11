@@ -3,6 +3,7 @@ import os
 import traceback
 import sys
 import time
+import select
 import itertools
 from concurrent import futures
 from sumoappclient.sumoclient.base import BaseCollector
@@ -11,6 +12,14 @@ from sumoappclient.sumoclient.factory import OutputHandlerFactory
 from sumoappclient.sumoclient.httputils import ClientMixin, SessionPool
 from sumoappclient.common.utils import get_current_timestamp, convert_epoch_to_utc_date
 
+
+def stdinWait(text, time, default=None):
+    print(text)
+    i, o, e = select.select([sys.stdin], [], [], time)
+    if (i):
+        return sys.stdin.readline().strip()
+    else:
+        return default
 
 
 class NetskopeCollector(BaseCollector):
@@ -23,6 +32,9 @@ class NetskopeCollector(BaseCollector):
         super(NetskopeCollector, self).__init__(self.project_dir)
         self.api_config = self.config['Netskope']
         self.netskope_conn = SessionPool(self.collection_config['MAX_RETRY'], self.collection_config['BACKOFF_FACTOR'], logger=self.log)
+        self.netskope_session = self.netskope_conn.get_request_session()
+        if self.collection_config['BACKFILL_DAYS'] > 90:
+            raise Exception('BACKFILL_DAYS cannot be more than 90 days')
         self.DEFAULT_START_TIME_EPOCH = get_current_timestamp() - self.collection_config['BACKFILL_DAYS']*24*60*60
 
     def get_current_dir(self):
@@ -30,20 +42,20 @@ class NetskopeCollector(BaseCollector):
         return cur_dir
 
     def get_endpoint_url(self, event_type):
-        if event_type in self.api_config['ALERT_TYPES']:
+        if event_type in self.api_config.get('ALERT_TYPES', []):
             return self.api_config['NETSKOPE_ALERT_ENDPOINT']
         else:
             return self.api_config['NETSKOPE_EVENT_ENDPOINT']
 
-    def set_fetch_state(self, event_type, start_time_epoch, end_time_epoch, skip=0):
+    def set_fetch_state(self, event_type, start_time_epoch, end_time_epoch, last_record_epoch=None):
         if end_time_epoch:  # end time epoch could be none in cases where no event is present
             assert start_time_epoch <= end_time_epoch
         obj = {
-            "skip": skip,
             'url': self.get_endpoint_url(event_type),
             "event_type": event_type,
             "start_time_epoch": start_time_epoch,
-            "end_time_epoch": end_time_epoch
+            "end_time_epoch": end_time_epoch,
+            "last_record_epoch": last_record_epoch
         }
 
         self.kvstore.set(event_type, obj)
@@ -59,13 +71,12 @@ class NetskopeCollector(BaseCollector):
             'type': event_type
         }
         url = self.get_endpoint_url(event_type)
-        sess = self.netskope_conn.get_request_session()
-        success, respjson = ClientMixin.make_request(url, method=self.api_config['FETCH_METHOD'], session=sess, params=params, logger=self.log, TIMEOUT=self.collection_config['TIMEOUT'], MAX_RETRY=self.collection_config['MAX_RETRY'], BACKOFF_FACTOR=self.collection_config['BACKOFF_FACTOR'])
-        self.netskope_conn.close()
+        success, respjson = ClientMixin.make_request(url, method=self.api_config['FETCH_METHOD'], session=self.netskope_session, params=params, logger=self.log, TIMEOUT=self.collection_config['TIMEOUT'], MAX_RETRY=self.collection_config['MAX_RETRY'], BACKOFF_FACTOR=self.collection_config['BACKOFF_FACTOR'])
+
         start_date = convert_epoch_to_utc_date(params['starttime'])
         end_date = convert_epoch_to_utc_date(params['endtime'])
         if success and respjson["status"] == "success" and len(respjson["data"]) > 0:
-            obj = self.set_fetch_state(event_type, start_time_epoch, respjson["data"][0]["timestamp"])
+            obj = self.set_fetch_state(event_type, start_time_epoch, respjson["data"][0]["timestamp"], respjson["data"][0]["timestamp"])
             self.log.info(f'''Creating task for {event_type} from {start_date} to {end_date}''')
             return obj
         else:
@@ -81,66 +92,96 @@ class NetskopeCollector(BaseCollector):
         return self.kvstore.release_lock(self.SINGLE_PROCESS_LOCK_KEY)
 
     def transform_data(self, data):
-        # import random
-        # srcip = ["216.161.180.148", "54.203.63.36"]
-        # for d in data:
-        #     d["timestamp"] = int(time.time())
-        #     d["srcip"] = random.choice(srcip)
         return data
 
-    def fetch(self, url, event_type, start_time_epoch, end_time_epoch, skip):
+    def get_last_record_epoch(self, obj):
+        params = {
+            'token': self.api_config['TOKEN'],
+            'limit': 1,
+            'starttime': obj['start_time_epoch'],
+            'endtime': obj['end_time_epoch'],
+            'skip': obj['skip'],
+            'type': obj['event_type']
+        }
+        if params['skip'] > 0:
+            params['skip'] -= 1
+        success, respjson = ClientMixin.make_request(obj['url'], method=self.api_config['FETCH_METHOD'], session=self.netskope_session, params=params, logger=self.log, TIMEOUT=self.collection_config['TIMEOUT'], MAX_RETRY=self.collection_config['MAX_RETRY'], BACKOFF_FACTOR=self.collection_config['BACKOFF_FACTOR'])
+        start_date = convert_epoch_to_utc_date(params['starttime'])
+        end_date = convert_epoch_to_utc_date(params['endtime'])
+        if success and respjson["status"] == "success" and len(respjson["data"]) > 0:
+            last_record_epoch = respjson["data"][0]["timestamp"]
+            last_record_date = convert_epoch_to_utc_date(last_record_epoch)
+            self.log.info(f'''last record for {obj['event_type']} from {params['starttime']} to {params['endtime']} skip: {params['skip']} is {last_record_date}''')
+            return last_record_epoch
+        else:
+            self.log.info("Response: %s" % respjson)
+            self.log.info("Setting end time epoch as last_record_epoch")
+            last_record_epoch = obj['end_time_epoch']
+            return last_record_epoch
+
+    def fetch(self, url, event_type, start_time_epoch, end_time_epoch, last_record_epoch):
 
         params = {
             'token': self.api_config['TOKEN'],
             'limit': self.api_config['PAGINATION_LIMIT'],
             'starttime': start_time_epoch,
             'endtime': end_time_epoch,
-            'skip': skip,
+            'skip': 0,
             'type': event_type
         }
+        if last_record_epoch:
+            params['endtime'] = last_record_epoch  # logs of same timestamp may be repeated
+
         output_handler = OutputHandlerFactory.get_handler(self.config['Collection']['OUTPUT_HANDLER'], config=self.config)
         next_request = send_success = True
-        count = 0
+        page_count = total_records = 0
         move_window = False
         sess = self.netskope_conn.get_request_session()
+        last_record_epoch = None
         try:
             while next_request:
-                count += 1
+                page_count += 1
                 fetch_success, respjson = ClientMixin.make_request(url, method=self.api_config['FETCH_METHOD'], session=sess, params=params, logger=self.log, TIMEOUT=self.collection_config['TIMEOUT'], MAX_RETRY=self.collection_config['MAX_RETRY'], BACKOFF_FACTOR=self.collection_config['BACKOFF_FACTOR'])
-                if fetch_success and respjson["status"] == "success":
+                fetch_success = fetch_success and respjson["status"] == "success"  # netskope sends 200 for errors
+                if fetch_success:
                     data = respjson["data"]
                     if len(data) > 0:
                         data = self.transform_data(data)
                         send_success = output_handler.send(data)
                         if send_success:
                             params['skip'] += len(data)
-                            self.log.info(f'''Successfully Sent Page: {count} Event Type: {event_type} Datalen: {len(
+                            total_records += len(data)
+                            last_record_epoch = data[-1]["timestamp"]
+                            self.log.info(f'''Successfully Sent Page: {page_count} Event Type: {event_type} Datalen: {len(
                                 data)} starttime: {convert_epoch_to_utc_date(
-                                start_time_epoch)} endtime: {convert_epoch_to_utc_date(end_time_epoch)}''')
-
+                                params['starttime'])} endtime: {convert_epoch_to_utc_date(params['endtime'])} skip: {params['skip']} last_record_epoch: {convert_epoch_to_utc_date(last_record_epoch)}''')
                     else:  # no data so moving window
                         move_window = True
+                else:
+                    self.log.error("Unable to fetch Response %s" % respjson)
 
                 next_request = fetch_success and send_success and (not move_window)
                 if move_window:
                     self.log.debug(
                         f'''Moving starttime window for {event_type} to {convert_epoch_to_utc_date(params["endtime"] + 1)}''')
-                    self.set_fetch_state(event_type, params["endtime"] + 1, None)
+                    self.set_fetch_state(event_type, end_time_epoch+1, None, None)
                 elif not (fetch_success and send_success):  # saving skip in casee of failures for restarting in future
-                    self.set_fetch_state(event_type, params["starttime"], params["endtime"], params["skip"])
+                    self.set_fetch_state(event_type, start_time_epoch, end_time_epoch, last_record_epoch)
                     self.log.error(
-                        f'''Failed to send Event Type: {event_type} Page: {count} starttime: {convert_epoch_to_utc_date(
-                            start_time_epoch)} endtime: {convert_epoch_to_utc_date(end_time_epoch)} fetch_success: {fetch_success} send_success: {send_success}''')
+                        f'''Failed to send Event Type: {event_type} Page: {page_count} starttime: {convert_epoch_to_utc_date(params['starttime'])} endtime: {convert_epoch_to_utc_date(params['endtime'])} fetch_success: {fetch_success} send_success: {send_success} skip: {params['skip']} last_record_epoch: {last_record_epoch}''')
+        except Exception as e:
+            self.set_fetch_state(event_type, start_time_epoch, end_time_epoch, last_record_epoch)
+            raise e
         finally:
             self.netskope_conn.close()
             output_handler.close()
-        self.log.info(f''' Total messages fetched {params['skip'] - skip} for Event Type: {event_type}''')
+        self.log.info(f''' Total messages fetched {total_records} for Event Type: {event_type} starttime: {convert_epoch_to_utc_date(params['starttime'])} endtime: {convert_epoch_to_utc_date(params['endtime'])}''')
 
     def build_task_params(self):
 
         tasks = []
 
-        for et in itertools.chain(self.api_config['ALERT_TYPES'], self.api_config['EVENT_TYPES']):
+        for et in itertools.chain(self.api_config.get('ALERT_TYPES', []), self.api_config.get('EVENT_TYPES', [])):
             if self.kvstore.has_key(et):
                 obj = self.kvstore.get(et)
                 if obj["end_time_epoch"] is None:
@@ -150,6 +191,14 @@ class NetskopeCollector(BaseCollector):
                 obj = self.set_new_end_epoch_time(et, self.DEFAULT_START_TIME_EPOCH)
             if obj is None:  # no new events so continue
                 continue
+
+            if "skip" in obj:
+                # for backward compatibility
+                if ("last_record_epoch" not in obj) or (obj["last_record_epoch"] is None and obj['skip'] > 0):
+                    obj["last_record_epoch"] = self.get_last_record_epoch(obj)
+                    self.log.info("setting last_record_epoch to %d" % obj["last_record_epoch"])
+
+                del obj['skip']
             tasks.append(obj)
         self.log.info(f'''Building tasks {len(tasks)}''')
         return tasks
@@ -160,7 +209,9 @@ class NetskopeCollector(BaseCollector):
                 self.log.info('Starting Netskope Event Forwarder...')
                 task_params = self.build_task_params()
                 all_futures = {}
-                self.log.info("spawning %d workers" % self.config['Collection']['NUM_WORKERS'])
+                log_types = ",".join([t['event_type'] for t in task_params])
+                if log_types:
+                    self.log.info("spawning %d workers for log types: %s" % (self.config['Collection']['NUM_WORKERS'], log_types))
                 with futures.ThreadPoolExecutor(max_workers=self.config['Collection']['NUM_WORKERS']) as executor:
                     results = {executor.submit(self.fetch, **param): param for param in task_params}
                     all_futures.update(results)
@@ -178,7 +229,8 @@ class NetskopeCollector(BaseCollector):
                 self.stop_running()
                 self.netskope_conn.closeall()
         else:
-            self.kvstore.release_lock_on_expired_key(self.SINGLE_PROCESS_LOCK_KEY)
+            if not self.is_process_running(["sumonetskopecollector", "netskope.py"]):
+                self.kvstore.release_lock_on_expired_key(self.SINGLE_PROCESS_LOCK_KEY)
 
     def test(self):
         params = {
@@ -192,7 +244,7 @@ class NetskopeCollector(BaseCollector):
         self.fetch(**params)
 
 
-def main():
+def main(*args, **kwargs):
     try:
         ns = NetskopeCollector()
         ns.run()
