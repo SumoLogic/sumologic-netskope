@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'This solution consists of a lambda functions which is used to fetch
+  logs from Netskope and ingest to Sumo Logic.
+
+  '
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Author: Sumo Logic
+    Description: This solution consists of a lambda functions which is used to fetch
+      logs from Netskope and ingest to Sumo Logic.
+    HomePageUrl: https://github.com/SumoLogic/sumologic-netskope-collector
+    Labels:
+    - lambda
+    - sumologic
+    - atlas
+    - serverless
+    - Netskope
+    LicenseUrl: ./LICENSE
+    Name: sumologic-netskope-collector
+    ReadmeUrl: ./README.md
+    SemanticVersion: 1.0.9
+    SourceCodeUrl: https://github.com/SumoLogic/sumologic-netskope-collector
+    SpdxLicenseId: Apache-2.0
+Outputs:
+  NetskopeFunction:
+    Description: NetskopeScheduler Function ARN
+    Value:
+      Fn::GetAtt:
+      - NetskopeFunction
+      - Arn
+Parameters:
+  NetskopeAlertEndpoint:
+    Type: String
+  NetskopeEventEndpoint:
+    Type: String
+  SumoEndpoint:
+    Type: String
+  Token:
+    Type: String
+Resources:
+  NetskopeFunction:
+    Properties:
+      CodeUri: ./target/aws/build/
+      Description: This function gets triggered perodically via CloudWatchEvents and
+        fetches logs from Netskope and ingest to SumoLogic
+      Environment:
+        Variables:
+          ENABLE_CONSOLE_LOG: false
+          ENVIRONMENT: aws
+          NETSKOPE_ALERT_ENDPOINT:
+            Ref: NetskopeAlertEndpoint
+          NETSKOPE_EVENT_ENDPOINT:
+            Ref: NetskopeEventEndpoint
+          SUMO_ENDPOINT:
+            Ref: SumoEndpoint
+          TOKEN:
+            Ref: Token
+      Events:
+        ScheduleRule:
+          Properties:
+            Schedule: rate(5 minutes)
+          Type: Schedule
+      Handler: netskope.main
+      MemorySize: 256
+      Policies:
+      - AmazonDynamoDBFullAccess
+      Runtime: python3.7
+      Timeout: 900
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
