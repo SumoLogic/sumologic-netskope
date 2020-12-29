@@ -1,1 +1,1 @@
-sumologic-appclient-sdk>=1.0.10
+sumologic-appclient-sdk==1.0.17
